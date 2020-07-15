@@ -1,53 +1,83 @@
 # ===============================================
 # Conversor de formatos
 # Autor: Rodrigo Tufiño <rtufino@ups.edu.ec>
-# Version: 1.0.0
-# Fecha: 16-01-2020
+# Version: 1.0.1
+#
+# Historial:
+#   v1.0.0  16-01-2020  Aplicación para Jessy
+#   v1.0.1  14-07-2020  Aplicación para Esteban y Karen
 # ===============================================
 
-FILE_PRECIPITACION = 'input/precipitacion.txt'
-FILE_TEMP_MAXIMA = 'input/tempmaxima.txt'
-FILE_TEMP_MINIMA = 'input/tempminima.txt'
+import os.path
+from datetime import datetime, timedelta
+from collections import OrderedDict
+from calendar import monthrange
 
-FILE_OUTPUT = 'output/resultado_27012020.txt'
+FILE_OUTPUT = 'output/resultado.txt'
 
+DATA = {
+    'PRECIPITACION': [],
+    'TEMP_MAXIMA': [],
+    'TEMP_MINIMA': [],
+    'VIENTO': [],
+    'PRESION': [],
+    'HUMEDAD': [],
+    'TIEMPO': []
+}
 
-def leer_archivo(archivo):
-    file = open(archivo, 'r')
-    datos = []
-    for linea in file.readlines():
-        datos.append(linea.rstrip().split('\t'))
-    file.close
-    return datos
+def cargar_datos():
+    for magnitud in DATA:
+        archivo = "input/" + magnitud.lower() + ".txt"
+        if os.path.exists(archivo):
+            file = open(archivo, 'r')
+            datos = []
+            primera_fila = True
+            for linea in file.readlines():
+                if primera_fila:
+                    primera_fila = False
+                    continue
+                datos.append(linea.rstrip().split('\t'))
+            file.close
+            DATA[magnitud] = datos
+            print("Datos de",magnitud,"cargados")
+        else:
+            print("No existe archivo para", magnitud)
 
+def generar_fechas(desde='1960-01-01', hasta='2020-07-01'):
+    dates = [desde, hasta]
+    start, end = [datetime.strptime(_, "%Y-%m-%d") for _ in dates]
+    return OrderedDict(((start + timedelta(_)).strftime(r"%Y-%m"), None) for _ in range((end - start).days)).keys()
+    
 
 def consultar(lista, codigo, anio, mes):
-    primera_fila = True
+    primer = True
     for row in lista:
-        if primera_fila:
-            primera_fila = False
-            continue
-        if row[0] == codigo and row[1] == anio and row[2] == mes:
+        if row[0].strip() == codigo and int(row[1]) == anio and int(row[2]) == mes:
             return row
+        primer = False
     return None
 
+def obtener_dato(fila, dia):
+    dato = '-99.9'
+    if fila is not None:
+        try:
+            dato = fila[dia+2]
+        except:
+            pass
+    return dato
 
-def armar_datos(codigo, anio, mes, row_a, row_b, row_c):
+def armar_datos(codigo, anio, mes, row_a, row_b, row_c, row_d, row_e, row_f, row_g):
     filas = []
-    for d in range(1, 32):
-        a = row_a[d+2]
-        if row_b is not None:
-            b = row_b[d+2]
-        else:
-            b = '-99.9'
-        if row_c is not None:
-            c = row_c[d+2]
-        else:
-            c = "-99.9"
-        if a == 'NULL':
-            a = "-99.9"
-        # if a != '-99.9' or b != '-99.9' or c != '-99.9':
-        filas.append([codigo, anio, mes, d, a, b, c])
+    ultimo_dia = monthrange(anio,mes)[1]
+    for dia in range(1, ultimo_dia + 1):
+        a = obtener_dato(row_a, dia)
+        b = obtener_dato(row_b, dia)
+        c = obtener_dato(row_c, dia)
+        d = obtener_dato(row_d, dia)
+        e = obtener_dato(row_e, dia)
+        f = obtener_dato(row_f, dia)
+        g = obtener_dato(row_g, dia)
+        filas.append([codigo, anio, mes, dia,a,b,c,d,e,f,g])
     return filas
 
 
@@ -58,8 +88,10 @@ def imprimir(salida):
         print('')
 
 
-def guardar(resultado):
-    file = open(FILE_OUTPUT, 'w')
+def guardar(codigo, resultado):
+    archivo = 'output/' + codigo + '.txt'
+    print("Generando archivo:", archivo)
+    file = open(archivo, 'w')
     for row in resultado:
         linea = ''
         for dato in row:
@@ -67,35 +99,42 @@ def guardar(resultado):
         linea = linea[:-1]+'\n'
         file.write(linea)
     file.close
-
-
-def procesar():
-    precipitaciones = leer_archivo(FILE_PRECIPITACION)
-    temp_maxima = leer_archivo(FILE_TEMP_MAXIMA)
-    temp_minima = leer_archivo(FILE_TEMP_MINIMA)
-
-    salida = [['codigo', 'anio', 'mes', 'dia',
-               'precipitacion', 'temp_maxima', 'temp_minima']]
-    primera_fila = True
-    for p in precipitaciones:
-        if primera_fila:
-            primera_fila = False
-            continue
-        row_a = p
-        codigo = row_a[0]
-        anio = row_a[1]
-        mes = row_a[2]
-        row_b = consultar(temp_maxima, codigo, anio, mes)
-        row_c = consultar(temp_minima, codigo, anio, mes)
-        filas = armar_datos(codigo, anio, mes, row_a, row_b, row_c)
-        salida.extend(filas)
-    return salida
+    
+def procesar(codigos, desde, hasta):
+    cabecera = ['CODIGO', 'ANIO', 'MES', 'DIA']
+    for magnitud in DATA:
+        cabecera.append(magnitud)
+    salida = [cabecera]
+    fechas = generar_fechas(desde, hasta)
+    for codigo in codigos:
+        for fecha in fechas:
+            anio = int(fecha.split("-")[0])
+            mes = int(fecha.split("-")[1])
+            row_a = consultar(DATA['PRECIPITACION'],codigo,anio,mes)
+            row_b = consultar(DATA['TEMP_MAXIMA'], codigo, anio, mes)
+            row_c = consultar(DATA['TEMP_MINIMA'], codigo, anio, mes)
+            row_d = consultar(DATA['VIENTO'], codigo, anio, mes)
+            row_e = consultar(DATA['PRESION'], codigo, anio, mes)
+            row_f = consultar(DATA['HUMEDAD'], codigo, anio, mes)
+            row_g = consultar(DATA['TIEMPO'], codigo, anio, mes)
+            filas = armar_datos(codigo, anio, mes, row_a, row_b, row_c, row_d, row_e, row_f, row_g)
+            salida.extend(filas)
+        guardar(codigo, salida)
 
 
 if __name__ == "__main__":
     print("== CONVERSOR DE FORMATOS ==")
-    print("Iniciando procesamiento...")
-    resultado = procesar()
-    print("Generando archivo de salida...")
-    guardar(resultado)
+    codigos = ['M0003']
+    desde = '1965-03-01'
+    hasta = '2020-07-01'
+
+    print("\nEstaciones a procesar:", codigos)
+    print("Desde:",desde)
+    print("Hasta:",hasta)
+
+    print("\nCargando datos:")
+    cargar_datos()
+    print('\nProcesando:')
+    procesar(codigos, desde, hasta)
+    
     print("Fin del programa.")
