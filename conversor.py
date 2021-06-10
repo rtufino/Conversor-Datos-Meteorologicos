@@ -6,6 +6,7 @@
 # Historial:
 #   v1.0.0  16-01-2020  Aplicación para Jessy
 #   v1.0.1  14-07-2020  Aplicación para Esteban y Karen
+#   v1.0.2  10-06-2021  Conversión para Kevin
 # ===============================================
 
 import os.path
@@ -29,7 +30,10 @@ def cargar_datos():
     for magnitud in DATA:
         archivo = "input/" + magnitud.lower() + ".txt"
         if os.path.exists(archivo):
-            file = open(archivo, 'r')
+            # ----------------------------------------------
+            # Cambio: encoding = "ISO-8859-1"
+            # ----------------------------------------------
+            file = open(archivo, 'r', encoding="ISO-8859-1")
             datos = []
             primera_fila = True
             for linea in file.readlines():
@@ -124,9 +128,9 @@ def procesar(codigos, desde, hasta):
 
 if __name__ == "__main__":
     print("== CONVERSOR DE FORMATOS ==")
-    codigos = ['M0003']
-    desde = '1965-03-01'
-    hasta = '2020-07-01'
+    codigos = ['M0470']
+    desde = '1982-01-01'
+    hasta = '2018-11-01'
 
     print("\nEstaciones a procesar:", codigos)
     print("Desde:",desde)
